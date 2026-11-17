@@ -1,42 +1,63 @@
-# AI Model Mumtaz
+# Mumtaz Bimbel — AI Anomaly Detection Service (FastAPI + LightGBM)
 
-AI Model Mumtaz adalah layanan backend berbasis kecerdasan buatan (Artificial Intelligence) yang dibangun menggunakan Python dan FastAPI.
+Layanan Machine Learning berbasis **FastAPI** untuk mendeteksi anomali absensi tutor (`valid`, `needs_revision`, `rejected`) menggunakan model **LightGBM** (`artifacts/anomaly_model.pkl`) dan **Guardrail Deterministik**.
 
-Project ini dirancang sebagai pusat layanan model AI (AI Service) yang nantinya akan digunakan dan diintegrasikan dengan aplikasi full-stack melalui REST API.
+## Struktur Folder
 
-Sistem ini bertanggung jawab untuk menangani proses komunikasi dengan model AI, pemrosesan data, inferensi model, serta menyediakan hasil pemrosesan dalam format JSON agar dapat digunakan oleh aplikasi frontend maupun backend lainnya.
+- `artifacts/` — File runtime model (`anomaly_model.pkl` & `feature_metadata.json`).
+- `app/schemas.py` — Tahap 1: Skema Pydantic request & response (sinkron dengan Backend `HttpAnomalyDetector`).
+- `app/feature_extractor.py` — Tahap 2: Transformasi JSON menjadi 19 fitur angka (`FEATURE_NAMES`).
+- `app/guardrail.py` — Tahap 4: Guardrail deterministik untuk kasus batas (mis. durasi 181 menit).
+- `app/response_builder.py` — Tahap 5: Penyusunan `validity_reason` & `findings` Bahasa Indonesia.
+- `app/main.py` — Entrypoint FastAPI (`GET /health` & `POST /v1/anomaly/analyze`).
+- `tests/test_api.py` — Pengujian otomatis endpoint & aturan bisnis.
+- `Dockerfile`, `.dockerignore`, `docker-compose.yml` — Konfigurasi container untuk dijalankan langsung oleh tim Fullstack.
 
----
+## Opsi 1: Menjalankan via Docker Compose (Direkomendasikan untuk Tim Fullstack)
 
-## 1. Gambaran Umum Project
+Pastikan Docker Desktop sudah aktif, lalu jalankan dari root folder proyek ini:
 
-AI Model Mumtaz dikembangkan sebagai layanan AI terpusat yang memungkinkan aplikasi lain mengakses kemampuan model AI melalui API.
+```powershell
+docker compose up --build -d
+```
 
-Dengan pendekatan ini, proses AI tidak perlu dijalankan langsung di dalam aplikasi frontend. Seluruh proses yang berkaitan dengan model AI akan ditangani oleh service ini.
+Untuk mengecek log atau menjalankan unit test di dalam container:
 
-### Tujuan Pengembangan
+```powershell
+docker compose logs -f ai-anomaly
+docker compose run --rm ai-anomaly pytest -v
+```
 
-- Menyediakan layanan model AI melalui REST API.
-- Menjadi pusat pemrosesan dan inferensi model AI.
-- Mempermudah integrasi dengan aplikasi full-stack.
-- Menyediakan komunikasi antara aplikasi dan model AI.
-- Mengelola proses input dan output model AI.
-- Menghasilkan respons dalam format JSON yang terstruktur.
-- Memisahkan logika AI dari logika aplikasi utama.
-- Membangun arsitektur backend yang modular, scalable, dan mudah dikembangkan.
+Untuk menghentikan container:
 
----
+```powershell
+docker compose down
+```
 
-## 2. Teknologi yang Digunakan
+## Opsi 2: Menjalankan Lokal Tanpa Docker (Python `venv`)
 
-| Teknologi | Fungsi |
-|---|---|
-| Python | Bahasa pemrograman utama |
-| FastAPI | Framework untuk membangun REST API |
-| Uvicorn | Server ASGI untuk menjalankan aplikasi |
-| Pydantic | Validasi dan serialisasi data |
-| Venv | Isolasi environment dan dependency Python |
-| Git | Version control |
-| JSON | Format komunikasi data API |
+```powershell
+.\venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-Teknologi tambahan seperti PyTorch, TensorFlow, Scikit-learn, Transformers, dan database dapat ditambahkan sesuai kebutuhan model AI yang akan dikembangkan.
+Jalankan unit test lokal:
+
+```powershell
+.\venv\Scripts\pytest.exe -v
+```
+
+## Endpoint & Integrasi dengan Backend Dashboard
+
+- **Health Check:** `GET http://localhost:8000/health`
+- **Swagger UI:** `http://localhost:8000/docs`
+- **Endpoint Analisis (Backend):** `POST http://localhost:8000/v1/anomaly/analyze`
+
+Pada file `backend/.env` di proyek `mumtaz-bimbel-dashboard`:
+
+- Jika Backend dijalankan lokal (`npm run dev -w backend`):
+  ```env
+  ANOMALY_SERVICE_URL=http://localhost:8000
+  ANOMALY_MODEL_NAME=anomaly-lgbm-v1
+  ```
+- Jika Backend juga dijalankan di dalam Docker container: gunakan `http://host.docker.internal:8000` (atau nama service `http://ai-anomaly:8000` jika berada di network compose yang sama).

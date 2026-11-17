@@ -1,0 +1,19 @@
+# Virtual environment & cache
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Git & IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+
+# Data mentah & dokumentasi (tidak dibutuhkan saat runtime container)
+dataset/
+docs/
