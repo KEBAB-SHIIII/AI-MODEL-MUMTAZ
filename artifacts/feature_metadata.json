@@ -1,0 +1,64 @@
+{
+  "model_name": "LightGBM",
+  "feature_count": 19,
+  "feature_names": [
+    "duration_minutes",
+    "duration_over_limit",
+    "start_minute",
+    "start_over_limit",
+    "subject_count",
+    "comparisons_count",
+    "exact_dup_count",
+    "same_tutor_student_date_count",
+    "same_student_date_diff_tutor_count",
+    "time_overlap_count",
+    "tutor_sessions_30d",
+    "student_sessions_30d",
+    "duration_diff_from_tutor_mean_30d",
+    "duration_under_limit",
+    "start_under_limit",
+    "fuzzy_dup_count",
+    "tutor_overlap_diff_student_count",
+    "student_overlap_diff_tutor_count",
+    "self_overlap_count"
+  ],
+  "target_classes": [
+    "needs_revision",
+    "rejected",
+    "valid"
+  ],
+  "priority_order": [
+    "rejected",
+    "needs_revision",
+    "valid"
+  ],
+  "default_config": {
+    "durationOutlierMinutes": 180,
+    "durationMinMinutes": 30,
+    "lateStartAfter": "21:00",
+    "earlyStartBefore": "07:00",
+    "comparisonWindowDays": 30,
+    "maxComparisons": 500
+  },
+  "dataset_summary": {
+    "total_rows": 7557,
+    "train_rows": 5289,
+    "val_rows": 1134,
+    "test_rows": 1134,
+    "class_distribution": {
+      "valid": 4534,
+      "needs_revision": 1511,
+      "rejected": 1512
+    }
+  },
+  "metrics_summary": {
+    "Model": "LightGBM",
+    "Waktu Latih (detik)": 0.383,
+    "Val Accuracy": 0.999118,
+    "Val Macro Precision": 0.999511,
+    "Val Macro Recall": 0.998525,
+    "Val Macro F1": 0.999016,
+    "Test Accuracy": 1.0,
+    "Test Macro F1": 1.0
+  }
+}
