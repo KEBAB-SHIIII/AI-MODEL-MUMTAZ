@@ -6,15 +6,21 @@ bebas key liar (seperti `parent_tips`), dan 100% lolos kontrak ketat
 `LearningSummaryResponse` sebelum dikembalikan ke Backend Dashboard.
 """
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import cast
 
 from .schemas import (
     LearningSummaryResponse,
     LearningSummarySessionInput,
+    OverallStatus,
     SubjectHighlight,
 )
 
-VALID_OVERALL_STATUSES = ("very_good", "good", "needs_attention")
+VALID_OVERALL_STATUSES: tuple[OverallStatus, ...] = (
+    "very_good",
+    "good",
+    "needs_attention",
+)
 
 
 def extract_allowed_subjects(
@@ -67,7 +73,7 @@ def _clean_string_list(items: object, max_items: int, max_len: int) -> list[str]
 
 
 def sanitize_llm_output(
-    raw: dict[str, Any],
+    raw: object,
     allowed_subjects: Sequence[str] | None = None,
     model_name: str | None = None,
 ) -> LearningSummaryResponse:
@@ -81,11 +87,12 @@ def sanitize_llm_output(
     if not isinstance(raw, dict):
         raise ValueError("Output LLM bukan objek JSON (dict)")
 
-    overall_status = raw.get("overall_status")
-    if isinstance(overall_status, str):
-        overall_status = overall_status.strip()
-    if overall_status not in VALID_OVERALL_STATUSES:
-        raise ValueError(f"overall_status tidak valid: {overall_status!r}")
+    raw_status = raw.get("overall_status")
+    if isinstance(raw_status, str):
+        raw_status = raw_status.strip()
+    if raw_status not in VALID_OVERALL_STATUSES:
+        raise ValueError(f"overall_status tidak valid: {raw_status!r}")
+    overall_status = cast(OverallStatus, raw_status)
 
     raw_summary = raw.get("summary")
     if not isinstance(raw_summary, str) or not raw_summary.strip():
@@ -137,13 +144,11 @@ def sanitize_llm_output(
                 break
 
     clean_model = (
-        _truncate(model_name, 80)
-        if isinstance(model_name, str) and model_name.strip()
-        else None
+        _truncate(model_name, 80) if model_name and model_name.strip() else None
     )
 
     return LearningSummaryResponse(
-        overall_status=overall_status,  # type: ignore[arg-type]
+        overall_status=overall_status,
         summary=summary,
         strengths=strengths,
         areas_to_improve=areas_to_improve,

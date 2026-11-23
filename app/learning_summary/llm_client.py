@@ -10,7 +10,8 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from google import genai
 from google.genai import errors as genai_errors
@@ -61,21 +62,36 @@ def _extract_json_dict(response: Any) -> dict[str, Any]:
     return data
 
 
+def _parse_thinking_level(raw_level: str | None) -> types.ThinkingLevel | None:
+    if not raw_level:
+        return None
+    normalized = raw_level.strip().upper()
+    level = types.ThinkingLevel.__members__.get(normalized)
+    if level is None:
+        logger.warning(
+            "LEARNING_SUMMARY_THINKING_LEVEL=%r tidak valid; menggunakan default model",
+            raw_level,
+        )
+    return level
+
+
 def _build_gemini_config(
     settings: LearningSummarySettings,
 ) -> types.GenerateContentConfig:
-    config_kwargs: dict[str, Any] = {
-        "system_instruction": SYSTEM_PROMPT,
-        "temperature": settings.temperature,
-        "max_output_tokens": settings.max_output_tokens,
-        "response_mime_type": "application/json",
-        "response_schema": LLMOutputSchema,
-    }
-    if settings.thinking_level:
-        config_kwargs["thinking_config"] = types.ThinkingConfig(
-            thinking_level=settings.thinking_level
-        )
-    return types.GenerateContentConfig(**config_kwargs)
+    thinking_level = _parse_thinking_level(settings.thinking_level)
+    thinking_config = (
+        types.ThinkingConfig(thinking_level=thinking_level)
+        if thinking_level is not None
+        else None
+    )
+    return types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        temperature=settings.temperature,
+        max_output_tokens=settings.max_output_tokens,
+        response_mime_type="application/json",
+        response_schema=LLMOutputSchema,
+        thinking_config=thinking_config,
+    )
 
 
 async def _generate_with_retry(

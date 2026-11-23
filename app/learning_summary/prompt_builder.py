@@ -6,7 +6,7 @@ objektif, zero-PII, anti-halusinasi, dan tahan terhadap prompt injection.
 """
 
 import json
-from typing import Sequence
+from collections.abc import Sequence
 
 from .postprocessor import extract_allowed_subjects
 from .schemas import LearningSummaryRequest
