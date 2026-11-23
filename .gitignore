@@ -1,4 +1,3 @@
-
 # Virtual Environment
 venv/
 .venv/
@@ -13,6 +12,9 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Internal documentation
+docs/
 
 # IDE
 .vscode/
