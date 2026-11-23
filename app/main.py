@@ -1,7 +1,9 @@
 """
-Entrypoint Utama Layanan FastAPI: Deteksi Anomali Absen Tutor (Mumtaz Bimbel).
+Entrypoint Utama Layanan FastAPI Mumtaz Bimbel:
+1. `POST /v1/anomaly/analyze`          : Deteksi Anomali Absen Tutor (LightGBM + Guardrail).
+2. `POST /v1/learning-summary/summarize`: Ringkasan Belajar Orang Tua (Generative AI Gemini).
 
-Alur eksekusi endpoint utama `POST /v1/anomaly/analyze`:
+Alur eksekusi endpoint anomaly `POST /v1/anomaly/analyze`:
 1. Tahap 1 (schemas.py)           : Validasi JSON request dari Backend (`HttpAnomalyDetector`).
 2. Tahap 2 (feature_extractor.py) : Ubah JSON (target, comparisons, config) -> 19 fitur angka.
 3. Tahap 3 (anomaly_model.pkl)    : Prediksi status awal menggunakan model LightGBM.
@@ -20,6 +22,8 @@ from fastapi import FastAPI, HTTPException
 
 from .feature_extractor import FEATURE_NAMES, extract_features_and_meta
 from .guardrail import apply_business_guardrail
+from .learning_summary.config import get_learning_summary_settings
+from .learning_summary.router import router as learning_summary_router
 from .response_builder import build_analyze_response
 from .schemas import AnalyzeRequest, AnalyzeResponse, HealthResponse
 
@@ -57,20 +61,26 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Mumtaz Bimbel - AI Anomaly Detection Service",
-    description="Layanan Machine Learning (LightGBM + Guardrail) untuk validasi absensi tutor.",
-    version="1.0.0",
+    title="Mumtaz Bimbel - AI Service (Anomaly Detection & Learning Summary)",
+    description=(
+        "Layanan AI FastAPI Mumtaz Bimbel: deteksi anomali absensi tutor (LightGBM + Guardrail) "
+        "dan ringkasan perkembangan belajar orang tua berbasis Generative AI."
+    ),
+    version="1.1.0",
     lifespan=lifespan,
 )
+
+app.include_router(learning_summary_router)
 
 
 @app.get("/", tags=["Info"])
 def root():
     """Endpoint informasi dasar layanan & link dokumentasi Swagger."""
     return {
-        "service": "Mumtaz Bimbel AI Anomaly Detection Service",
+        "service": "Mumtaz Bimbel AI Service",
         "health_endpoint": "/health",
         "analyze_endpoint": "/v1/anomaly/analyze",
+        "learning_summary_endpoint": "/v1/learning-summary/summarize",
         "docs": "/docs",
     }
 
@@ -79,15 +89,17 @@ def root():
 def health_check() -> HealthResponse:
     """
     Endpoint untuk memastikan server FastAPI hidup dan model ML sudah termuat di memori.
-    Dipanggil secara berkala atau sebelum menyambungkan Backend Node.js.
+    Tidak memanggil API LLM eksternal agar healthcheck selalu cepat dan gratis.
     """
     model_loaded = ml_state.get("model") is not None
     metadata = ml_state.get("metadata") or {}
+    summary_settings = get_learning_summary_settings()
     return HealthResponse(
         status="ok" if model_loaded else "degraded",
         model_loaded=model_loaded,
         model_name=str(metadata.get("model_name", "LightGBM")),
         feature_count=len(FEATURE_NAMES),
+        learning_summary_configured=summary_settings.is_configured,
     )
 
 

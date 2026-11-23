@@ -140,3 +140,4 @@ class HealthResponse(BaseModel):
     model_loaded: bool
     model_name: str
     feature_count: int
+    learning_summary_configured: bool = False
