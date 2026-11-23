@@ -9,15 +9,21 @@ Menjalankan seluruh test:
     .\\venv\\Scripts\\pytest.exe -v
 """
 
+import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
+from google.genai import errors as genai_errors
 
+from app.learning_summary import llm_client as learning_summary_llm_client
 from app.learning_summary import router as learning_summary_router_module
+from app.learning_summary.config import LearningSummarySettings
 from app.learning_summary.llm_client import (
     LLMNotConfiguredError,
     LLMProviderError,
     LLMTimeoutError,
+    summarize_with_llm,
 )
 from app.learning_summary.prompt_builder import build_user_prompt
 from app.learning_summary.schemas import LearningSummaryRequest, LearningSummaryResponse
@@ -395,3 +401,72 @@ def test_error_timeout_and_not_configured_handling(monkeypatch):
         assert res_health.status_code == 200
         assert res_health.json()["status"] == "ok"
         assert res_health.json()["learning_summary_configured"] is False
+
+
+def test_automatic_fallback_model_on_503(monkeypatch):
+    called_models: list[str] = []
+
+    class FakeAsyncModels:
+        async def generate_content(self, *, model, contents, config):
+            called_models.append(model)
+            if model == "gemini-3.5-flash-lite":
+                raise genai_errors.ServerError(
+                    503,
+                    {
+                        "error": {
+                            "code": 503,
+                            "message": "high demand",
+                            "status": "UNAVAILABLE",
+                        }
+                    },
+                )
+            return SimpleNamespace(
+                parsed={
+                    "overall_status": "good",
+                    "summary": "Ringkasan berhasil melalui model fallback.",
+                    "strengths": ["Lancar berhitung"],
+                    "areas_to_improve": [],
+                    "subjects_covered": [
+                        {"subject_name": "Matematika", "highlight": "Pemahaman baik."}
+                    ],
+                },
+                text=None,
+            )
+
+    class FakeAsyncClient:
+        models = FakeAsyncModels()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            self.api_key = api_key
+            self.aio = FakeAsyncClient()
+
+    monkeypatch.setattr(learning_summary_llm_client.genai, "Client", FakeClient)
+    monkeypatch.setattr(learning_summary_llm_client, "_PER_MODEL_RETRY_DELAYS", (0.0,))
+
+    req = LearningSummaryRequest.model_validate(SESSION_PAYLOAD)
+    settings = LearningSummarySettings(
+        provider="gemini",
+        gemini_api_key="test-key",
+        model="gemini-3.5-flash-lite",
+        fallback_models=("gemini-3.6-flash",),
+        timeout_seconds=10.0,
+        temperature=0.25,
+        max_output_tokens=1536,
+        thinking_level="MINIMAL",
+    )
+
+    raw_output, model_used = asyncio.run(summarize_with_llm(req, settings=settings))
+    assert model_used == "gemini-3.6-flash"
+    assert raw_output["overall_status"] == "good"
+    assert called_models == [
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash",
+    ]
