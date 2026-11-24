@@ -1,6 +1,6 @@
 # Mumtaz Bimbel — AI Service (FastAPI)
 
-Layanan **AI REST API stateless** berbasis **FastAPI** untuk aplikasi **Mumtaz Bimbel Dashboard**. Service ini menjalankan **2 modul AI yang sepenuhnya terisolasi** dalam satu container/port (`8000`):
+Layanan **AI REST API** berbasis **FastAPI** untuk aplikasi **Mumtaz Bimbel Dashboard**. Service ini menjalankan **2 modul AI yang sepenuhnya terisolasi** dalam satu container/port (`8000`):
 
 1. **Deteksi Anomali Absensi Tutor (`POST /v1/anomaly/analyze`)** — Model **Machine Learning lokal (LightGBM + Guardrail Deterministik)** untuk menjaga akurasi _payroll_ tutor dan _billing_ orang tua.
 2. **Ringkasan Belajar Orang Tua (`POST /v1/learning-summary/summarize`)** — **Generative AI (Google Gemini Structured Output + Post-Processor Deterministik)** untuk merangkum perkembangan belajar anak per sesi maupun bulanan dalam Bahasa Indonesia.
